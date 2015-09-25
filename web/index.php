@@ -62,7 +62,6 @@ $DefaultTimeZone = "Europe/Amsterdam"; //In PHP5.1 or newer this can be replaced
 date_default_timezone_set($DefaultTimeZone);
 
 $FakeTimeStamp = 1434405435; //This timestamp is used in demo mode
-
 /*
  * List of Sensor not to be shown in Graph, even if they are found in db
  * initially filed with random sensornames/numbers. TBC: Empty this array or enter your sensors to be ignored
@@ -99,7 +98,8 @@ function getTime() {
     if (DEMOMODE) {
         return $FakeTimeStamp;
     } else {
-        return ($date->getTimestamp() + $date->getOffset());
+        return ($date->getTimestamp());
+        //return ($date->getTimestamp() + $date->getOffset());
     }
 }
 
@@ -133,6 +133,7 @@ function getColorForSensor($sensorNameRaw) {
  * Maybe Create db without any example sensorname?
  */
 function initDB() {
+	echo("Will try to init the database.");	
     try {
         //create or open the database
 		// Create (connect to) SQLite database in file
@@ -217,7 +218,10 @@ function echoDatasetForChart($arrayOfSensorNamesRaw, $startTime, $endTime, $reso
  * @param $time Timestamp of measured sensor value
  */
 function addSensorValue($sensorNameRaw, $value, $time) {
-    $database = new SQLiteDatabase(SQLITENAME, 0666, $error);
+    //$database = new SQLiteDatabase(SQLITENAME, 0666, $error);
+	if(!file_exists(SQLITENAME.'.sqlite3')){
+		initDB();
+	}
 	
     $database = new PDO('sqlite:'.SQLITENAME.'.sqlite3');
     // Set errormode to exceptions
@@ -239,9 +243,16 @@ function addSensorValue($sensorNameRaw, $value, $time) {
         }
         //If sensorname column doesnt exist, create it
         if (!$sensorNameExists) {
-            //Select everything from old table into new temporary table
-            $query = 'CREATE TABLE temp_table AS SELECT * FROM sensorvalues;';
+            //Try to delete temp_table if needed
+            $query = 'DROP TABLE temp_table;';
             executeQuery($database, $query);
+        	
+        	//Select everything from old table into new temporary table
+            $query = 'CREATE TABLE temp_table AS SELECT * FROM sensorvalues;';
+            //echo("<br> will query:".$query);
+			$res=$database->query($query);
+			//echo(": Result was: ".$res);
+			//var_dump($res);
             $query = 'DROP TABLE sensorvalues;';
             executeQuery($database, $query);
             $query = 'CREATE TABLE sensorvalues (TIME DATE PRIMARY KEY UNIQUE, ';
@@ -295,13 +306,18 @@ function addSensorValue($sensorNameRaw, $value, $time) {
  */
 function executeQuery($database, $query) {
     debugEcho("executing: " . $query . "...");
-    if ($result = $database->query($query)) {
-        debugEcho("OK.");
-        return TRUE;
-    } else {
-        debugEcho("Error!");
-        return FALSE;
-    }debugEcho("</br>");
+    try{
+		if ($result = $database->query($query)) {
+			debugEcho("OK.");
+			return TRUE;
+		} else {
+			debugEcho("Error!");
+			return FALSE;
+    	}
+    debugEcho("</br>");
+    }catch (Exception $e) {
+        debugEcho("<br>Error executing Query.".$query."<br>");
+    }
 }
 
 /**
@@ -353,6 +369,9 @@ function isSensorName($testString) {
  */
 function checkSensorNameList() {
     //$database = new SQLiteDatabase(SQLITENAME, 0666, $error);
+	if(!file_exists(SQLITENAME.'.sqlite3')){
+		initDB();
+	}
     $database = new PDO('sqlite:'.SQLITENAME.'.sqlite3');
     // Set errormode to exceptions
     $database->setAttribute(PDO::ATTR_ERRMODE, 
@@ -463,6 +482,7 @@ function echoDataAsJson($sensorNameRaw, $startTime, $endTime, $resolution, $mode
  */
 function getDataAsArray($sensorNameRaw, $startTime, $endTime, $resolution, $mode) {
     //$mode="avg" (default) or "extrema"
+    $returnValue=array();
     if (!($mode == "AVG") && !($mode == "EXTREMA") && !($mode == "TIME")) {
         $mode = "AVG";
     }
@@ -478,6 +498,7 @@ function getDataAsArray($sensorNameRaw, $startTime, $endTime, $resolution, $mode
     if ($result = $database->query($query)) {
         while ($row = $result->fetch(PDO::FETCH_NUM)) {
             $returnValue[] = $row[0];
+//            echo(" - ".$row[0]);
         }
 
         $numberOfFoundDataPoints = count($returnValue);
@@ -495,11 +516,12 @@ function getDataAsArray($sensorNameRaw, $startTime, $endTime, $resolution, $mode
             //Return the avg value per block
             //Determine number of possible data blocks for average of min/max calculation
             $numberOfDataPointsPerBlock = floor($numberOfFoundDataPoints / $resolution);
-            $outputArray = array_slice($returnValue, $numberOfFoundDataPoints - ($numberOfDataPointsPerBlock * $resolution));
-
+            $outputArray = array_slice($returnValue, (-1)*$numberOfDataPointsPerBlock*$resolution);
+			unlink($returnVal);
+			
             for ($i = 0; $i < $resolution; $i++) {
                 $sum = 0;
-                for ($i1 = 0; $i1 < $numberOfDataPointsPerBlock; $i1++) {
+                for ($i1 = 1; $i1 <= $numberOfDataPointsPerBlock; $i1++) {
                     $sum+=$outputArray[$i1 * $i];
                 }
                 $returnVal[] = getRoundedValue($sum / $numberOfDataPointsPerBlock);
@@ -511,12 +533,13 @@ function getDataAsArray($sensorNameRaw, $startTime, $endTime, $resolution, $mode
             $resolution = $resolution / 2;
             $numberOfDataPointsPerBlock = floor($numberOfFoundDataPoints / $resolution);
             $outputArray = array_slice($returnValue, $numberOfFoundDataPoints - ($numberOfDataPointsPerBlock * $resolution));
-            for ($i = 0; $i < $resolution; $i++) {
-                $min = 100;
-                $max = 0;
-                for ($i1 = 0; $i1 < $numberOfDataPointsPerBlock; $i1++) {
-                    $min = min($min, $outputArray[$i1 * $i]);
-                    $max = max($max, $outputArray[$i1 * $i]);
+            for ($i = 1; $i <= $resolution; $i++) {
+                $min = 200;
+                $max = -100;
+                for ($i1 = 1; $i1 <= $numberOfDataPointsPerBlock; $i1++) {
+                	$tmp=$i1 + ($i-1)*$numberOfDataPointsPerBlock;
+                    $min = min($min, $outputArray[$i1 + ($i-1)*$numberOfDataPointsPerBlock]);
+                    $max = max($max, $outputArray[$i1 + ($i-1)*$numberOfDataPointsPerBlock]);
                 }
                 $returnVal[] = getRoundedValue($min);
                 $returnVal[] = getRoundedValue($max);
@@ -812,7 +835,7 @@ function printStandardWebsite() {
     ?>';
                     getString += '&TIMEDIFF=' + timeToDisplay + '&RES=' + resolution + '&MODE=' + mode;
                     getString += '&SENSOR=' + JSON.stringify(sensorNameRawArray);
-                    console.log(getString);
+                    //console.log(getString);
                     $.get(getString, null, function (data) {
                         //console.log(data);
                         myLineChart.destroy();
@@ -889,6 +912,9 @@ function printStandardWebsite() {
                     $(this).mousemove(function (e) {
                         restartTimer();
                     });
+                    
+                    //console.log("PHP-Timestamp is: <?php echo(getTime());?>");
+                    //console.log("JS-TimeStamp is: ");
                 });
             </script>
 
@@ -938,7 +964,9 @@ function printStandardWebsite() {
                     foreach ($sensorNames as $key => $value) {
                         ?>
                         <p>
-                            <input class="sensorCheckbox" type="checkbox" id="<?php echo($key); ?>" name="<?php echo($value); ?>" <?php
+                            <input class="sensorCheckbox" type="checkbox" id="<?php echo($key); ?>" name="<?php echo($value); ?>" 
+                            <?php
+                            $checkFlag=false;
                            if (!$checkFlag) {
                                $checkFlag = true;
                                echo('checked="checked"');
@@ -1091,7 +1119,6 @@ function printSimplePage() {
 
 /*** Begin of handling requests **/
 
-
 /* Check for unkown sensors */
 checkSensorNameList();
 
@@ -1102,10 +1129,12 @@ checkSensorNameList();
  * If secret is $ADDSEKRET, then we add the data from GET-Parameters into sensor-db
  * This is used by arduino to push sensor values
  */
+if(isset($_GET['SEKRET'])){
 if ($_GET['SEKRET'] == $ADDSEKRET) {
     debugEcho("Will add data");
     addAllSensorValuesFromGET();
     closeConnection();
+}
 }
 
 /*
@@ -1146,7 +1175,7 @@ if(isset($_GET['GETDATA'])){
  */
 if(isset($_GET['INIT'])){
 	if ((($_GET['INIT'] == 'YES') && ($_GET['SEKRET'] == $VIEWSEKRET))) {
-	echo("INIT th DB.");
+	echo("INIT the DB.");
     initDB();
     debugEcho("init of DB");
 }
@@ -1158,8 +1187,8 @@ if(isset($_GET['INIT'])){
 if(isset($_GET['SIMPLE'])){
 	if (strtoupper($_GET['SIMPLE']) == 'YES') {
     printSimplePage();
+	exit;
 	}
-exit; 
 }
 printStandardWebsite();
 
