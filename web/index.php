@@ -993,9 +993,13 @@ function printStandardWebsite() {
         </div>
         <footer class="page-footer blue lighten-3">
             <div class="footer-copyright blue lighten-3">
-
-                <a class="grey-text text-lighten-3 right" href="https://github.com/ChristophBodenstein" target="_blank">Source-Code</a>
-
+				<div class="container">
+				<a class="grey-text text-lighten-3 left" href="index.php?SEKRET=<?php
+				global $VIEWSEKRET;
+				echo($VIEWSEKRET);
+				 ?>&SIMPLE=YES">Mobile Website</a>
+                <a class="grey-text text-lighten-3 right" href="https://github.com/ChristophBodenstein/sensorwatch" target="_blank">Source-Code</a>
+				</div>
             </div>
         </footer>
 
@@ -1103,12 +1107,15 @@ function printSimplePage() {
                     </tbody>
                 </table>
             </div>
-        <footer class="page-footer #e3f2fd blue lighten-5">
-            <div class="footer-copyright">
-                <div class="container">
-    <?php echo(date("d.m.Y", $lastRow['TIME'])); ?>
-                    <a class="grey-text text-lighten-4 right" href="https://github.com/ChristophBodenstein" target="_blank">Source-Code</a>
-                </div>
+        <footer class="page-footer blue lighten-3">
+            <div class="footer-copyright blue lighten-3">
+				<div class="container">
+				<a class="grey-text text-lighten-3 left" href="index.php?SEKRET=<?php
+				global $VIEWSEKRET;
+				echo($VIEWSEKRET);
+				 ?>&SIMPLE=NO">Desktop Website</a>
+                <a class="grey-text text-lighten-3 right" href="https://github.com/ChristophBodenstein/sensorwatch" target="_blank">Source-Code</a>
+				</div>
             </div>
         </footer>
     </body>
