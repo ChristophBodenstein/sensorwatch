@@ -534,11 +534,12 @@ function getDataAsArray($sensorNameRaw, $startTime, $endTime, $resolution, $mode
             $numberOfDataPointsPerBlock = floor($numberOfFoundDataPoints / $resolution);
             $outputArray = array_slice($returnValue, $numberOfFoundDataPoints - ($numberOfDataPointsPerBlock * $resolution));
             for ($i = 1; $i <= $resolution; $i++) {
-                $min = $outputArray[($i)*$numberOfDataPointsPerBlock];
-                $max = $outputArray[($i)*$numberOfDataPointsPerBlock];
+                $min = $outputArray[($i)*$numberOfDataPointsPerBlock -1];
+                $max = $outputArray[($i)*$numberOfDataPointsPerBlock -1];
                 for ($i1 = 1; $i1 <= $numberOfDataPointsPerBlock; $i1++) {
-                    $min = min($min, $outputArray[$i1 + ($i-1)*$numberOfDataPointsPerBlock]);
-                    $max = max($max, $outputArray[$i1 + ($i-1)*$numberOfDataPointsPerBlock]);
+                $index=$i1 + ($i-1)*$numberOfDataPointsPerBlock -1;
+                    $min = min($min, $outputArray[$index]);
+                    $max = max($max, $outputArray[$index]);
                 }
                 $returnVal[] = getRoundedValue($min);
                 $returnVal[] = getRoundedValue($max);
